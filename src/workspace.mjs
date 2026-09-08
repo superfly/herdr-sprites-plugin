@@ -29,7 +29,7 @@ export function regularPath(root, name) {
   }
   return target;
 }
-export function validate(snapshot) {
+export function validate(snapshot, limit = LIMIT) {
   if (snapshot?.version !== 1 || !Array.isArray(snapshot.files)) throw new Error('Invalid workspace snapshot');
   const seen = new Set();
   let size = 0;
@@ -39,7 +39,7 @@ export function validate(snapshot) {
       throw new Error(`Invalid or excluded snapshot path: ${file.path}`);
     seen.add(file.path);
     size += Buffer.byteLength(file.data, 'base64');
-    if (size > LIMIT) throw new Error('Workspace exceeds 64 MiB transfer limit');
+    if (size > limit) throw new Error(`Workspace exceeds ${limit / 1024 / 1024} MiB transfer limit`);
   }
   for (const name of seen) {
     const parts = name.split('/');
@@ -47,10 +47,10 @@ export function validate(snapshot) {
   }
   return snapshot;
 }
-export function snapshot(root) {
+export function snapshot(root, limit = LIMIT) {
   const names = [...new Set(git(root, ['ls-files', '--cached', '--others', '--exclude-standard', '-z']).split('\0').filter(Boolean))].sort();
   const ignored = new Set(git(root, ['ls-files', '--cached', '--ignored', '--exclude-standard', '-z']).split('\0'));
-  const files = [], excluded = [];
+  const files = [], excluded = [], candidates = [];
   let size = 0;
   for (const name of names) {
     if (!safePath(name) || ignored.has(name)) { excluded.push(name); continue; }
@@ -60,17 +60,24 @@ export function snapshot(root) {
     try { stat = fs.lstatSync(target); } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
     if (!stat.isFile()) { excluded.push(name); continue; }
     size += stat.size;
-    if (size > LIMIT) throw new Error('Workspace exceeds 64 MiB transfer limit');
+    candidates.push({ name, target, stat });
+  }
+  if (size > limit) {
+    const largest = [...candidates].sort((a, b) => b.stat.size - a.stat.size).slice(0, 5)
+      .map(({ name, stat }) => `${JSON.stringify(name)} (${(stat.size / 1024 / 1024).toFixed(1)} MiB)`).join(', ');
+    throw new Error(`Workspace is ${(size / 1024 / 1024).toFixed(1)} MiB; exceeds ${limit / 1024 / 1024} MiB transfer limit. Largest files: ${largest}. Exclude unnecessary files with .gitignore or .git/info/exclude, or increase maxTransferMiB in plugin config and start a new Sprite.`);
+  }
+  for (const { name, target, stat } of candidates) {
     files.push({ path: name, mode: stat.mode & 0o111 ? 0o755 : 0o644, data: fs.readFileSync(target).toString('base64') });
   }
-  return validate({ version: 1, files, excluded });
+  return validate({ version: 1, files, excluded }, limit);
 }
 export function initSnapshotRepo(root) {
   git(root, ['init', '-q']);
   fs.writeFileSync(path.join(root, '.git/info/attributes'), '* -text -filter -ident -working-tree-encoding\n');
 }
-export function writeSnapshot(root, data) {
-  validate(data);
+export function writeSnapshot(root, data, limit = LIMIT) {
+  validate(data, limit);
   fs.mkdirSync(root, { recursive: true });
   for (const file of data.files) {
     const dest = regularPath(root, file.path);
@@ -80,8 +87,8 @@ export function writeSnapshot(root, data) {
   }
 }
 function equal(a, b) { return a?.data === b?.data && a?.mode === b?.mode; }
-export function pull(root, baseline, incoming) {
-  validate(baseline); validate(incoming);
+export function pull(root, baseline, incoming, limit = LIMIT) {
+  validate(baseline, limit); validate(incoming, limit);
   const before = new Map(baseline.files.map(f => [f.path, f]));
   const after = new Map(incoming.files.map(f => [f.path, f]));
   const changed = [...new Set([...before.keys(), ...after.keys()])].filter(n => !equal(before.get(n), after.get(n)));
@@ -115,13 +122,13 @@ export function pull(root, baseline, incoming) {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'herdr-pull-'));
   try {
     initSnapshotRepo(temporary);
-    writeSnapshot(temporary, { version: 1, files: pending.map(n => before.get(n)).filter(Boolean) });
+    writeSnapshot(temporary, { version: 1, files: pending.map(n => before.get(n)).filter(Boolean) }, limit);
     git(temporary, ['add', '-f', '--all']);
     git(temporary, ['-c', 'user.name=Herdr', '-c', 'user.email=herdr@localhost', 'commit', '--allow-empty', '-qm', 'baseline']);
     for (const name of pending) fs.rmSync(path.join(temporary, name), { force: true, recursive: true });
-    writeSnapshot(temporary, { version: 1, files: pending.map(n => after.get(n)).filter(Boolean) });
+    writeSnapshot(temporary, { version: 1, files: pending.map(n => after.get(n)).filter(Boolean) }, limit);
     git(temporary, ['add', '-f', '--all']);
-    const patch = git(temporary, ['diff', '--cached', '--binary', '--no-ext-diff', '--no-textconv', '--no-renames', 'HEAD']);
+    const patch = git(temporary, ['diff', '--cached', '--binary', '--no-ext-diff', '--no-textconv', '--no-renames', 'HEAD'], { maxBuffer: Math.max(LIMIT * 2, limit * 4) });
     git(root, ['apply', '--check', '--binary', '--whitespace=nowarn', '-'], { input: patch });
     git(root, ['apply', '--binary', '--whitespace=nowarn', '-'], { input: patch });
     return changed.length;
@@ -129,10 +136,12 @@ export function pull(root, baseline, incoming) {
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    if (process.argv[2] === 'export') process.stdout.write(JSON.stringify(snapshot(process.argv[3])));
+    const limit = process.argv[5] === undefined ? LIMIT : Number(process.argv[5]);
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 512 * 1024 * 1024) throw new Error('Invalid transfer limit');
+    if (process.argv[2] === 'export') process.stdout.write(JSON.stringify(snapshot(process.argv[3], limit)));
     else if (process.argv[2] === 'import') {
       const data = JSON.parse(fs.readFileSync(process.argv[4], 'utf8'));
-      writeSnapshot(process.argv[3], data);
+      writeSnapshot(process.argv[3], data, limit);
       initSnapshotRepo(process.argv[3]);
       git(process.argv[3], ['add', '-f', '--all']);
       git(process.argv[3], ['-c', 'user.name=Herdr', '-c', 'user.email=herdr@localhost', 'commit', '--allow-empty', '-qm', 'Herdr upload baseline']);

@@ -50,10 +50,13 @@ export function config(configDir) {
   const command = value.command ?? commands[agent];
   if (!/^[a-z][a-z0-9_-]*$/.test(agent) || !Array.isArray(command) || !command.length || command.some(s => typeof s !== 'string' || !s || s.includes('\0')))
     throw new Error('Configure agent and a non-empty command argv array.');
+  const maxTransferMiB = value.maxTransferMiB ?? 64;
+  if (!Number.isSafeInteger(maxTransferMiB) || maxTransferMiB < 1 || maxTransferMiB > 512)
+    throw new Error('Configure maxTransferMiB as an integer from 1 to 512.');
   const namePrefix = value.namePrefix ?? 'herdr-';
   if (typeof namePrefix !== 'string' || namePrefix.length > 20 || !/^[a-z][a-z0-9-]*-$/.test(namePrefix))
     throw new Error('Configure namePrefix as lowercase letters, digits and hyphens, starting with a letter and ending with a hyphen (2–20 characters).');
-  return { org: value.org, agent, command, namePrefix, spriteBin: value.spriteBin ?? 'sprite' };
+  return { org: value.org, agent, command, namePrefix, maxTransferMiB, spriteBin: value.spriteBin ?? 'sprite' };
 }
 export function sprite(entry, args, options) { return run(entry.spriteBin, ['-o', entry.org, '-s', entry.name, ...args], options); }
 export function upload(entry, local, dest) {
@@ -77,7 +80,7 @@ export function checkpoint(entry, comment = 'Herdr before agent run') {
 }
 export function prepare(stateDir, entry) {
   const dir = path.dirname(entryFile(stateDir, entry.pane));
-  const baseline = snapshot(entry.localRoot);
+  const baseline = snapshot(entry.localRoot, (entry.maxTransferMiB ?? 64) * 1024 * 1024);
   atomic(path.join(dir, 'baseline.json'), baseline);
   entry.phase = 'creating'; save(stateDir, entry);
   // Save the intended name before creating: interrupted requests remain recoverable.
@@ -86,7 +89,7 @@ export function prepare(stateDir, entry) {
   remote(entry, ['mkdir', '-p', entry.remoteBase]);
   upload(entry, path.join(ROOT, 'src', 'workspace.mjs'), `${entry.remoteBase}/workspace.mjs`);
   upload(entry, path.join(dir, 'baseline.json'), `${entry.remoteBase}/upload.json`);
-  remote(entry, ['node', `${entry.remoteBase}/workspace.mjs`, 'import', entry.remoteRoot, `${entry.remoteBase}/upload.json`]);
+  remote(entry, ['node', `${entry.remoteBase}/workspace.mjs`, 'import', entry.remoteRoot, `${entry.remoteBase}/upload.json`, String((entry.maxTransferMiB ?? 64) * 1024 * 1024)]);
   remote(entry, ['rm', '-f', `${entry.remoteBase}/upload.json`]);
   remote(entry, ['mkdir', '-p', entry.remoteCwd]);
   entry.uploaded = true; save(stateDir, entry);
@@ -113,8 +116,9 @@ export function finishSetup(stateDir, entry) {
 export function pullChanges(stateDir, entry) {
   ensureStopped(entry);
   const dir = path.dirname(entryFile(stateDir, entry.pane));
-  const incoming = JSON.parse(remote(entry, ['node', `${entry.remoteBase}/workspace.mjs`, 'export', entry.remoteRoot]));
-  const count = pull(entry.localRoot, read(path.join(dir, 'baseline.json')), incoming);
+  const limit = (entry.maxTransferMiB ?? 64) * 1024 * 1024;
+  const incoming = JSON.parse(remote(entry, ['node', `${entry.remoteBase}/workspace.mjs`, 'export', entry.remoteRoot, '-', String(limit)], { maxBuffer: limit * 4 }));
+  const count = pull(entry.localRoot, read(path.join(dir, 'baseline.json')), incoming, limit);
   atomic(path.join(dir, 'baseline.json'), incoming);
   return count;
 }

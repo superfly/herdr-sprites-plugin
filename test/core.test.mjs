@@ -73,3 +73,13 @@ test('configuration defaults and validates Sprite name prefixes', t => {
     write(prefix); assert.throws(() => config(dir), /namePrefix/);
   }
 });
+
+test('transfer limit defaults to 64 MiB and accepts bounded integer overrides', t => {
+  const { dir } = fixture(t);
+  const write = maxTransferMiB => fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ org: 'org', maxTransferMiB }));
+  write(undefined); assert.equal(config(dir).maxTransferMiB, 64);
+  write(256); assert.equal(config(dir).maxTransferMiB, 256);
+  for (const value of [0, -1, 513, 1.5, '256']) {
+    write(value); assert.throws(() => config(dir), /maxTransferMiB/);
+  }
+});

@@ -100,3 +100,21 @@ test('pull supports file/directory transitions and refuses extra local directory
   pull(root, nested, base);
   assert.equal(fs.readFileSync(path.join(root, 'a'), 'utf8'), 'file');
 });
+
+test('size diagnostics include total and largest eligible files, excluding ignored files', t => {
+  const root = repo(t);
+  write(root, 'small', '1234'); write(root, 'large', '12345678');
+  write(root, '.git/info/exclude', 'ignored\n'); write(root, 'ignored', 'x'.repeat(100));
+  assert.throws(() => snapshot(root, 10), error => {
+    assert.match(error.message, /Largest files: "large".*"small"/);
+    assert.match(error.message, /maxTransferMiB/);
+    assert.ok(!error.message.includes('"ignored"')); return true;
+  });
+  const baseline = snapshot(root, 12);
+  const dest = repo(t); writeSnapshot(dest, baseline, 12);
+  const incoming = tree(file('small', '1234'), file('large', '123456789'));
+  assert.throws(() => pull(dest, baseline, incoming, 12), /transfer limit/);
+  assert.equal(fs.readFileSync(path.join(dest, 'large'), 'utf8'), '12345678');
+  pull(dest, baseline, incoming, 13);
+  assert.equal(fs.readFileSync(path.join(dest, 'large'), 'utf8'), '123456789');
+});
