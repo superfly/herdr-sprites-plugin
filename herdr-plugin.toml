@@ -1,0 +1,60 @@
+id = "sprites"
+name = "Sprites"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "Run coding agents in persistent Sprites with safe worktree transfer and checkpoint rollback."
+platforms = ["linux", "macos"]
+
+[[actions]]
+id = "start-agent"
+title = "Start agent in a new Sprite"
+contexts = ["workspace", "pane"]
+command = ["node", "src/action.mjs"]
+
+[[actions]]
+id = "reconnect"
+title = "Reconnect to agent Sprite"
+contexts = ["pane"]
+command = ["node", "src/action.mjs"]
+
+[[actions]]
+id = "pull"
+title = "Pull Sprite changes locally"
+contexts = ["pane"]
+command = ["node", "src/action.mjs"]
+
+[[actions]]
+id = "stop"
+title = "Stop agent session"
+contexts = ["pane"]
+command = ["node", "src/action.mjs"]
+
+[[actions]]
+id = "info"
+title = "Show Sprite and sessions"
+contexts = ["pane"]
+command = ["node", "src/action.mjs"]
+
+[[actions]]
+id = "destroy"
+title = "Destroy Sprite…"
+contexts = ["pane"]
+command = ["node", "src/action.mjs"]
+
+[[actions]]
+id = "checkpoint"
+title = "Checkpoint Sprite"
+contexts = ["pane"]
+command = ["node", "src/action.mjs"]
+
+[[actions]]
+id = "restore"
+title = "Restore checkpoint…"
+contexts = ["pane"]
+command = ["node", "src/action.mjs"]
+
+[[panes]]
+id = "confirm"
+title = "Confirm Sprite operation"
+placement = "split"
+command = ["node", "src/confirm.mjs"]

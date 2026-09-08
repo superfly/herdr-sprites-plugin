@@ -1,0 +1,37 @@
+{
+  "started": "2026-09-08T12:02:40.692Z",
+  "herdr": "herdr 0.9.0",
+  "checks": [
+    "real Herdr manifest, split pane, dirty worktree upload, secret exclusion, nested cwd, TTY launch, pre-run checkpoint",
+    "detach and reconnect reuse the same remote session",
+    "pull refuses active agent; stop terminates agent and preserves Sprite",
+    "safe pull rejects collision atomically, applies additions/edits, repeats without changes",
+    "restore cancellation preserves remote changes",
+    "confirmed restore replaces remote filesystem and preserves local files plus safety checkpoint",
+    "fresh run after restore",
+    "destroy cancellation and confirmed deletion",
+    "claude installed (2.1.251 (Claude Code)), checkpointed and launched in Herdr TTY",
+    "codex installed (codex-cli 0.151.0), checkpointed and launched in Herdr TTY",
+    "opencode installed (1.18.29), checkpointed and launched in Herdr TTY"
+  ],
+  "resources": [
+    "herdr-claude-01ccfecb5df7",
+    "herdr-claude-ff96b964a6fb",
+    "herdr-codex-6649a3f5fb40",
+    "herdr-opencode-720849eb38bd"
+  ],
+  "claude": {
+    "version": "2.1.251 (Claude Code)",
+    "ttySessionVerified": true
+  },
+  "codex": {
+    "version": "codex-cli 0.151.0",
+    "ttySessionVerified": true
+  },
+  "opencode": {
+    "version": "1.18.29",
+    "ttySessionVerified": true
+  },
+  "ok": true,
+  "finished": "2026-09-08T12:04:52.470Z"
+}
