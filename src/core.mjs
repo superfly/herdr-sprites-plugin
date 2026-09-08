@@ -78,24 +78,30 @@ export function checkpoint(entry, comment = 'Herdr before agent run') {
   if (!id) throw new Error('Checkpoint command returned no version ID; refusing to continue.');
   return id;
 }
-export function prepare(stateDir, entry) {
+export function prepare(stateDir, entry, progress = () => {}) {
   const dir = path.dirname(entryFile(stateDir, entry.pane));
+  progress('Scanning workspace files…');
   const baseline = snapshot(entry.localRoot, (entry.maxTransferMiB ?? 64) * 1024 * 1024);
+  const bytes = baseline.files.reduce((sum, file) => sum + Buffer.byteLength(file.data, 'base64'), 0);
+  progress(`Workspace: ${baseline.files.length} files, ${(bytes / 1024 / 1024).toFixed(1)} MiB. Creating Sprite ${entry.name}…`);
   atomic(path.join(dir, 'baseline.json'), baseline);
   entry.phase = 'creating'; save(stateDir, entry);
   // Save the intended name before creating: interrupted requests remain recoverable.
   sprite(entry, ['create', entry.name, '--skip-console']);
   entry.created = true; entry.phase = 'uploading'; save(stateDir, entry);
+  progress('Uploading workspace…');
   remote(entry, ['mkdir', '-p', entry.remoteBase]);
   upload(entry, path.join(ROOT, 'src', 'workspace.mjs'), `${entry.remoteBase}/workspace.mjs`);
   upload(entry, path.join(dir, 'baseline.json'), `${entry.remoteBase}/upload.json`);
+  progress('Preparing remote workspace and Git baseline…');
   remote(entry, ['node', `${entry.remoteBase}/workspace.mjs`, 'import', entry.remoteRoot, `${entry.remoteBase}/upload.json`, String((entry.maxTransferMiB ?? 64) * 1024 * 1024)]);
   remote(entry, ['rm', '-f', `${entry.remoteBase}/upload.json`]);
   remote(entry, ['mkdir', '-p', entry.remoteCwd]);
   entry.uploaded = true; save(stateDir, entry);
-  finishSetup(stateDir, entry);
+  finishSetup(stateDir, entry, progress);
 }
-export function finishSetup(stateDir, entry) {
+export function finishSetup(stateDir, entry, progress = () => {}) {
+  progress(`Preparing ${entry.agent}…`);
   const dir = path.dirname(entryFile(stateDir, entry.pane));
   // Use image-provided CLIs; install a pinned OpenCode when absent from the image.
   if (entry.command[0] === 'opencode') {
