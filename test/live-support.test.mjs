@@ -47,3 +47,30 @@ test('reports redact the configured token without needing real credentials', () 
   try { assert.equal(redact('error placeholder-for-redaction-test'), 'error [REDACTED]'); }
   finally { if (previous === undefined) delete process.env.SPRITE_TOKEN; else process.env.SPRITE_TOKEN = previous; }
 });
+test('token normalization trims copy/paste whitespace before constructing headers or child environments', async () => {
+  const { normalizeSpriteToken } = await import('../scripts/live-support.mjs');
+  const { validateHeaderValue } = await import('node:http');
+  const { spawnSync } = await import('node:child_process');
+  const env = { SPRITE_TOKEN: ' \tfixture-token\r\n' };
+  assert.throws(() => validateHeaderValue('Authorization', `Bearer ${env.SPRITE_TOKEN}`));
+  normalizeSpriteToken(env, true);
+  assert.equal(env.SPRITE_TOKEN, 'fixture-token');
+  assert.doesNotThrow(() => validateHeaderValue('Authorization', `Bearer ${env.SPRITE_TOKEN}`));
+  const child = spawnSync(process.execPath, ['-e', 'process.exit(process.env.SPRITE_TOKEN === "fixture-token" ? 0 : 1)'], { env: { ...process.env, ...env } });
+  assert.equal(child.status, 0);
+});
+test('malformed tokens fail early without exposing their contents; local config auth remains supported', async () => {
+  const { normalizeSpriteToken } = await import('../scripts/live-support.mjs');
+  for (const token of ['fixture\nprivate', 'fixture\rprivate', 'fixture\tprivate', 'Bearer private', 'fixture\x7fprivate']) {
+    const env = { SPRITE_TOKEN: token };
+    assert.throws(() => normalizeSpriteToken(env), error => {
+      assert.ok(error.message.includes('one token on one line'));
+      assert.ok(!error.message.includes('private'));
+      return true;
+    });
+  }
+  assert.throws(() => normalizeSpriteToken({ SPRITE_TOKEN: ' \r\n' }), /Set the SPRITE_TOKEN/);
+  assert.throws(() => normalizeSpriteToken({}, true), /Set the SPRITE_TOKEN/);
+  const localEnv = {}; normalizeSpriteToken(localEnv);
+  assert.equal(Object.hasOwn(localEnv, 'SPRITE_TOKEN'), false);
+});

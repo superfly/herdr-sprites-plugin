@@ -35,7 +35,11 @@ jobs:
         env:
           SPRITE_TOKEN: ${{ secrets.SPRITE_TOKEN }}
         run: |
-          test -n "$SPRITE_TOKEN" || { echo 'Add the SPRITE_TOKEN repository Actions secret.'; exit 1; }
+          node --input-type=module <<'NODE'
+          import { normalizeSpriteToken } from './scripts/live-support.mjs';
+          try { normalizeSpriteToken(process.env, true); }
+          catch (error) { console.error(error.message); process.exitCode = 1; }
+          NODE
           test -n "$SPRITES_TEST_ORG" || { echo 'Add the SPRITES_TEST_ORG repository Actions variable.'; exit 1; }
       - name: Install pinned CLIs
         run: |

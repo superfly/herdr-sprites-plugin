@@ -102,7 +102,7 @@ The script stops its test Herdr server, deletes its test Sprites, and verifies t
 
 Configure these repository Actions settings:
 
-- **Secret `SPRITE_TOKEN`**: a Sprite token for a dedicated test organization. It needs permission to create/destroy Sprites, exec, and create/restore checkpoints. The CLI reads the token directly from its environment; no login command or token file is needed.
+- **Secret `SPRITE_TOKEN`**: a Sprite token for a dedicated test organization. It needs permission to create/destroy Sprites, exec, and create/restore checkpoints. Use only the token value, without a `Bearer` prefix or shell command. The harness trims surrounding whitespace (including copied trailing newlines) and rejects embedded whitespace/control characters before running the CLI. The CLI reads the token from its environment; no login command or token file is needed.
 - **Variable `SPRITES_TEST_ORG`**: the organization name associated with that token.
 
 Run **Actions → Real Sprite E2E → Run workflow**, selecting **main**, or:

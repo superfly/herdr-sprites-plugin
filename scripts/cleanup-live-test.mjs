@@ -2,10 +2,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { run } from '../src/core.mjs';
-import { cleanupSprites, testEnvironment, redact } from './live-support.mjs';
+import { cleanupSprites, testEnvironment, redact, normalizeSpriteToken } from './live-support.mjs';
 const dir = process.env.HERDR_TEST_RUN_DIR;
 const org = process.env.SPRITES_TEST_ORG;
 try {
+  normalizeSpriteToken();
   if (!dir || !org || !path.isAbsolute(dir)) throw new Error('Set absolute HERDR_TEST_RUN_DIR and SPRITES_TEST_ORG');
   if (fs.existsSync(dir)) {
     // Stop provisioning before reconciling all recorded creation intents.

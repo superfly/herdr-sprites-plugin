@@ -3,6 +3,18 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { run, read } from '../src/core.mjs';
 
+export function normalizeSpriteToken(env = process.env, required = false) {
+  const raw = env.SPRITE_TOKEN;
+  if (raw === undefined && !required) return;
+  const token = raw?.trim();
+  if (!token) throw new Error('Set the SPRITE_TOKEN Actions secret to the token value.');
+  if (!/^[\x21-\x7e]+$/.test(token)) {
+    throw new Error('SPRITE_TOKEN must be one token on one line, without embedded whitespace or control characters. Update the Actions secret with only the token value.');
+  }
+  // Do not persist or print the normalized token; children inherit it in memory.
+  env.SPRITE_TOKEN = token;
+}
+
 export function testEnvironment(dir) {
   return { ...process.env, XDG_CONFIG_HOME: `${dir}/config`, XDG_STATE_HOME: `${dir}/state`, XDG_RUNTIME_DIR: `${dir}/runtime`, HERDR_SOCKET_PATH: `${dir}/herdr.sock`, SHELL: '/bin/bash' };
 }
