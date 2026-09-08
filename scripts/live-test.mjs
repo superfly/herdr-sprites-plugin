@@ -81,7 +81,7 @@ try {
   json(['plugin', 'link', ROOT]);
   cfgDir = hr(['plugin', 'config-dir', 'sprites']);
   stateDir = `${dir}/state/herdr/plugins/sprites`;
-  const writeConfig = value => fs.writeFileSync(path.join(cfgDir, 'config.json'), JSON.stringify({ org, namePrefix: 'ci-herdr-', ...value }));
+  const writeConfig = value => fs.writeFileSync(path.join(cfgDir, 'config.json'), JSON.stringify({ org, auth: 'none', namePrefix: 'ci-herdr-', ...value }));
   const project = `${dir}/project`;
   git(project, ['init', '-q']);
   fs.writeFileSync(`${project}/hello.txt`, 'committed\n'); git(project, ['add', '.']);

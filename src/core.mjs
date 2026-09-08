@@ -3,6 +3,7 @@ import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { transferCredentials } from './auth.mjs';
 import { snapshot, pull, LIMIT } from './workspace.mjs';
 
 export const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -50,13 +51,15 @@ export function config(configDir) {
   const command = value.command ?? commands[agent];
   if (!/^[a-z][a-z0-9_-]*$/.test(agent) || !Array.isArray(command) || !command.length || command.some(s => typeof s !== 'string' || !s || s.includes('\0')))
     throw new Error('Configure agent and a non-empty command argv array.');
+  const auth = value.auth ?? 'auto';
+  if (!['auto', 'none'].includes(auth)) throw new Error('Configure auth as auto or none.');
   const maxTransferMiB = value.maxTransferMiB ?? 64;
   if (!Number.isSafeInteger(maxTransferMiB) || maxTransferMiB < 1 || maxTransferMiB > 512)
     throw new Error('Configure maxTransferMiB as an integer from 1 to 512.');
   const namePrefix = value.namePrefix ?? 'herdr-';
   if (typeof namePrefix !== 'string' || namePrefix.length > 20 || !/^[a-z][a-z0-9-]*-$/.test(namePrefix))
     throw new Error('Configure namePrefix as lowercase letters, digits and hyphens, starting with a letter and ending with a hyphen (2–20 characters).');
-  return { org: value.org, agent, command, namePrefix, maxTransferMiB, spriteBin: value.spriteBin ?? 'sprite' };
+  return { org: value.org, agent, command, namePrefix, maxTransferMiB, auth, spriteBin: value.spriteBin ?? 'sprite' };
 }
 export function sprite(entry, args, options) { return run(entry.spriteBin, ['-o', entry.org, '-s', entry.name, ...args], options); }
 export function upload(entry, local, dest) {
@@ -112,12 +115,26 @@ export function finishSetup(stateDir, entry, progress = () => {}) {
   if (['claude', 'codex', 'opencode'].includes(entry.command[0])) {
     entry.installedVersion = remote(entry, ['sh', '-lc', `export PATH=${quote(toolPath)}:$PATH; ${quote(entry.command[0])} --version`]);
   }
-  const script = `#!/bin/sh\nset -eu\ncd ${quote(entry.remoteCwd)}\nexport HERDR_AGENT=${quote(entry.agent)}\nexport PATH=${quote(toolPath)}:$PATH\nexec ${entry.command.map(quote).join(' ')}\n`;
+  writeLauncher(stateDir, entry);
+  entry.prepared = true; entry.phase = 'ready'; entry.excluded = read(path.join(dir, 'baseline.json')).excluded;
+  save(stateDir, entry);
+}
+function writeLauncher(stateDir, entry) {
+  const dir = path.dirname(entryFile(stateDir, entry.pane));
+  const toolPath = `${entry.remoteBase}/tools/node_modules/.bin`;
+  upload(entry, path.join(ROOT, 'src/agent-runner.mjs'), `${entry.remoteBase}/agent-runner.mjs`);
+  const script = `#!/bin/sh\nset -eu\ncd ${quote(entry.remoteCwd)}\nexport HERDR_AGENT=${quote(entry.agent)}\nexport PATH=${quote(toolPath)}:$PATH\nexec node ${quote(entry.remoteBase + '/agent-runner.mjs')} ${quote(entry.remoteBase + '/agent-env.json')} ${entry.command.map(quote).join(' ')}\n`;
   const launchFile = path.join(dir, 'run.sh');
   fs.writeFileSync(launchFile, script, { mode: 0o600 });
   upload(entry, launchFile, `${entry.remoteBase}/run.sh`);
-  entry.prepared = true; entry.phase = 'ready'; entry.excluded = read(path.join(dir, 'baseline.json')).excluded;
-  save(stateDir, entry);
+}
+export function handoffCredentials(stateDir, entry, progress) {
+  if (entry.auth === 'none' || entry.authTransferred) return;
+  progress('Connecting your local agent login…');
+  if (transferCredentials(entry, remote)) {
+    writeLauncher(stateDir, entry);
+    entry.authTransferred = true; save(stateDir, entry);
+  } else progress('No local login found; use the agent terminal to sign in');
 }
 export function pullChanges(stateDir, entry) {
   ensureStopped(entry);

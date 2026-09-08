@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { load, save, withLock, prepare, finishSetup, checkpoint, sprite, sessions } from './core.mjs';
+import { load, save, withLock, prepare, finishSetup, checkpoint, sprite, sessions, handoffCredentials } from './core.mjs';
 const [mode, stateDir, pane] = process.argv.slice(2);
 const { createProgress } = await import('./progress.mjs');
 const display = createProgress({ fresh: mode === 'start' });
@@ -19,6 +19,7 @@ try {
       const active = sessions(entry);
       if (active.length > 1) throw new Error('Multiple agent sessions found; use Stop before reconnecting.');
       if (active.length) return { ...entry, attachSession: String(active[0].id) };
+      handoffCredentials(stateDir, entry, progress);
       progress('Creating pre-run checkpoint…');
       entry.checkpoint = checkpoint(entry);
       entry.phase = 'connecting'; delete entry.error; save(stateDir, entry);

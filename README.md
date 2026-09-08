@@ -1,6 +1,6 @@
 # Sprites for Herdr
 
-Run Claude Code, Codex, OpenCode, or a custom coding-agent CLI in a persistent [Sprite](https://sprites.dev), controlled from a local [Herdr](https://herdr.dev) pane. Each agent pane gets its own Sprite. Worktree files include uncommitted edits; host credentials and Git metadata are not uploaded.
+Run Claude Code, Codex, OpenCode, or a custom coding-agent CLI in a persistent [Sprite](https://sprites.dev), controlled from a local [Herdr](https://herdr.dev) pane. Each agent pane gets its own Sprite. Worktree files include uncommitted edits; Git metadata stays local; the selected agent’s login is handed off separately from project files.
 
 ## Local setup
 
@@ -41,7 +41,23 @@ Invoke from a Git worktree in Herdr:
 herdr plugin action invoke start-agent --plugin sprites
 ```
 
-The action creates a split pane and launches setup there. Setup clears the launch command from the fresh pane, then shows animated progress steps and elapsed times before handing the terminal to the agent. The command may briefly appear before setup starts because Herdr launches it through the shell. Reconnect preserves existing scrollback. Non-interactive output stays plain; `NO_COLOR` disables colors. Action results and errors are available through `herdr plugin log list --plugin sprites`. Its `setup-launched` result is asynchronous: use Info or read the new pane to confirm setup completed. Initial provider authentication takes place inside the remote agent's terminal; no host agent credentials are copied. Authentication saved inside the Sprite survives reconnects and idle suspension.
+The action creates a split pane and launches setup there. Setup clears the launch command from the fresh pane, then shows animated progress steps and elapsed times before handing the terminal to the agent. The command may briefly appear before setup starts because Herdr launches it through the shell. Reconnect preserves existing scrollback. Non-interactive output stays plain; `NO_COLOR` disables colors. Action results and errors are available through `herdr plugin log list --plugin sprites`. Its `setup-launched` result is asynchronous: use Info or read the new pane to confirm setup completed. Claude and Codex reuse your local login automatically when one is available. Otherwise, sign in inside the remote terminal. Authentication saved inside the Sprite survives reconnects and idle suspension.
+
+## Agent login handoff
+
+`"auth": "auto"` is the default. For the selected standard `claude` or `codex` command, setup transfers the local login once before the first agent launch. It also works when reconnecting a stopped Sprite created by an older plugin version. Set `"auth": "none"` before creating a Sprite to keep authentication entirely manual. Disabling handoff does not revoke credentials already stored remotely.
+
+- **Claude:** reads its macOS Keychain item (including `CLAUDE_CONFIG_DIR` profiles), falling back to `.credentials.json`; Linux uses that file directly. macOS may prompt you to allow Keychain access. Only the OAuth credential fields are copied.
+- **Codex:** reads `auth.json` under `CODEX_HOME` (default `~/.codex`), honoring the root `cli_auth_credentials_store` setting. macOS `keyring` and `auto` modes use the exact Codex Keychain item. Linux keyring export is not supported; use file storage or manual login.
+- **Environment credentials:** `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, or `ANTHROPIC_AUTH_TOKEN` can supply Claude access; `OPENAI_API_KEY` can supply Codex access. An explicit supported environment credential takes precedence over the cached login. It must be present in the environment Herdr gives the bridge. Project `.env` files and custom credential helpers are not read.
+
+Credentials travel through the Sprite CLI's stdin, never command arguments. Remote files have mode `0600`, outside the uploaded workspace. Token values are not written to local plugin state, generated launch scripts, reports, or progress output. Local settings, hooks, MCP configuration, and project trust are not copied. Claude's initial onboarding marker is set on the Sprite; workspace trust prompts still belong to the agent.
+
+The Sprite and its checkpoints contain the copied credentials. They use your account and its limits, and remain accessible to processes running as your Sprite user. Reconnect preserves remotely refreshed credentials instead of overwriting them with an older local cache. Revoked or expired sessions can still require another login; this is a one-time handoff, not a token-refresh relay. OpenCode and custom command wrappers currently use manual authentication.
+
+The live E2E harness explicitly sets `auth: "none"`; credential tests use fixture values only. Provider inference with transferred credentials has not been exercised by CI.
+
+Format references: [Codex authentication](https://developers.openai.com/codex/auth/) and [Claude credential management](https://code.claude.com/docs/en/authentication#credential-management).
 
 ## Actions
 
@@ -76,7 +92,7 @@ It excludes Git-ignored files (including tracked files now ignored), `.git`, `.s
 
 Pull compares the current remote snapshot against the last successful upload/pull snapshot. Every affected local file must still match that baseline or already match the incoming result. Overlapping local edits, untracked collisions, unsafe paths, and symlink ancestors cause rejection before any local change. Unrelated local changes are preserved. A binary Git patch performs the final checked apply; the local index and existing commits remain unchanged. Repeated pulls and retrying after a receipt-write interruption are safe. There is no automatic upload on reconnect and no automatic overwrite of remote agent work.
 
-The baseline and mapping live under `HERDR_PLUGIN_STATE_DIR`, outside the source checkout, in private per-pane files. Configuration lives under `HERDR_PLUGIN_CONFIG_DIR`. Worktree removal does not destroy Sprites automatically. Fleet orchestration, host credential injection, and worktree-removal cleanup are optional follow-ups from issue #106, not enabled in this version.
+The baseline and mapping live under `HERDR_PLUGIN_STATE_DIR`, outside the source checkout, in private per-pane files. Configuration lives under `HERDR_PLUGIN_CONFIG_DIR`. Worktree removal does not destroy Sprites automatically. Fleet orchestration and worktree-removal cleanup are optional follow-ups from issue #106, not enabled in this version.
 
 ## Testing
 
