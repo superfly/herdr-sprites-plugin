@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import path from 'node:path';
+import { realpathSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { git } from './workspace.mjs';
 import { config, run, save, load, withLock, bridgeCommand, pullChanges, stop, sessions, checkpoint, ensureStopped } from './core.mjs';
@@ -16,11 +17,14 @@ export function action(env = process.env) {
   const hr = args => run(herdr, args);
   if (action === 'start-agent') {
     const cfg = config(configDir);
-    const cwd = context.focused_pane_cwd ?? context.workspace_cwd;
-    if (!cwd || !path.isAbsolute(cwd)) throw new Error('A Git workspace is required.');
-    const localRoot = git(cwd, ['rev-parse', '--show-toplevel']).trim();
+    const requestedCwd = context.focused_pane_cwd ?? context.workspace_cwd;
+    if (!requestedCwd || !path.isAbsolute(requestedCwd)) throw new Error('A Git workspace is required.');
+    // Git resolves symlink ancestors (such as macOS /var -> /private/var).
+    // Compare both paths in the same physical namespace.
+    const cwd = realpathSync(requestedCwd);
+    const localRoot = realpathSync(git(cwd, ['rev-parse', '--show-toplevel']).replace(/\n$/, ''));
     const relative = path.relative(localRoot, cwd);
-    if (relative.startsWith('..')) throw new Error('Pane is outside its Git worktree.');
+    if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error('Pane is outside its Git worktree.');
     run(cfg.spriteBin, ['list', '-o', cfg.org]); // Authenticate before creating a pane.
     const split = JSON.parse(hr(['pane', 'split', pane, '--direction', 'right', '--ratio', '0.5', '--cwd', cwd, '--focus']));
     const target = split?.result?.pane?.pane_id;

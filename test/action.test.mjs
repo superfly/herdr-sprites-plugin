@@ -54,3 +54,24 @@ test('missing context and unknown actions fail without external mutation', t => 
   assert.equal(f.execute({ HERDR_PLUGIN_ACTION_ID: 'unknown' }).status, 1);
   assert.equal(fs.existsSync(f.calls), false);
 });
+test('start resolves symlinked workspace ancestors before computing remote cwd', t => {
+  const f = fixture(t);
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'herdr-alias-'));
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  const alias = path.join(parent, 'workspace');
+  fs.symlinkSync(f.dir, alias, 'dir');
+  fs.mkdirSync(path.join(f.dir, 'nested'));
+  const result = f.execute({ HERDR_PLUGIN_CONTEXT_JSON: JSON.stringify({ focused_pane_cwd: path.join(alias, 'nested'), focused_pane_id: 'w1:p1' }) });
+  assert.equal(result.status, 0, result.stderr);
+  const entry = load(f.env.HERDR_PLUGIN_STATE_DIR, 'w1:p2');
+  assert.equal(entry.localRoot, fs.realpathSync(f.dir));
+  assert.equal(entry.remoteCwd, `${entry.remoteRoot}/nested`);
+});
+test('start accepts a subdirectory whose name starts with two dots', t => {
+  const f = fixture(t);
+  fs.mkdirSync(path.join(f.dir, '..work'));
+  const result = f.execute({ HERDR_PLUGIN_CONTEXT_JSON: JSON.stringify({ focused_pane_cwd: path.join(f.dir, '..work'), focused_pane_id: 'w1:p1' }) });
+  assert.equal(result.status, 0, result.stderr);
+  const entry = load(f.env.HERDR_PLUGIN_STATE_DIR, 'w1:p2');
+  assert.equal(entry.remoteCwd, `${entry.remoteRoot}/..work`);
+});
