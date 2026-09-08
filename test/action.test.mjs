@@ -88,3 +88,21 @@ test('start uses the configured CI prefix in its saved name and remote paths', t
   assert.match(entry.name, /^ci-herdr-codex-[a-f0-9]{12}$/);
   assert.equal(entry.remoteBase, `/home/sprite/.herdr/${entry.name}`);
 });
+
+test('non-Git folder shows actionable notification without creating a pane or initializing Git', t => {
+  const f = fixture(t);
+  fs.rmSync(path.join(f.dir, '.git'), { recursive: true });
+  const result = f.execute();
+  assert.equal(result.status, 1);
+  const error = JSON.parse(result.stderr).error;
+  assert.match(error, /Sprites needs a Git project/);
+  assert.ok(error.includes(fs.realpathSync(f.dir)));
+  assert.match(error, /git -C .* init/);
+  assert.match(error, /No commit is required/);
+  assert.ok(!error.includes('fatal:'));
+  const calls = fs.readFileSync(f.calls, 'utf8').trim().split('\n').map(JSON.parse);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].slice(0, 3), ['notification', 'show', 'Sprites needs a Git project']);
+  assert.equal(fs.existsSync(path.join(f.dir, '.git')), false);
+  assert.equal(fs.existsSync(f.env.HERDR_PLUGIN_STATE_DIR), false);
+});

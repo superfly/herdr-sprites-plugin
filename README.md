@@ -35,7 +35,7 @@ For another agent, or to pass arguments, supply an argv array:
 
 `agent` sets the `HERDR_AGENT` detection hint; use a kind Herdr recognizes. `command` runs in the remote workspace, without local shell expansion. `namePrefix` defaults to `herdr-`; set it to `ci-` for credentials restricted to `ci-*` names. It must be 2–20 lowercase letters, digits or hyphens, start with a letter, and end with a hyphen. `spriteBin` optionally selects an absolute Sprite CLI path. The organization and command are saved per mapping, so later config changes do not retarget existing Sprites.
 
-Invoke from a Git worktree in Herdr:
+Invoke from a Git worktree in Herdr. For a new project, run `git init` first; no commit is required. If the focused folder is not a Git repository, the plugin shows a Herdr notification with the next step and records the folder and initialization command in its action error:
 
 ```sh
 herdr plugin action invoke start-agent --plugin sprites

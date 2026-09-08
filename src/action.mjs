@@ -3,7 +3,7 @@ import path from 'node:path';
 import { realpathSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { git } from './workspace.mjs';
-import { config, run, save, load, withLock, bridgeCommand, pullChanges, stop, sessions, checkpoint, ensureStopped } from './core.mjs';
+import { config, run, save, load, withLock, bridgeCommand, pullChanges, stop, sessions, checkpoint, ensureStopped, quote } from './core.mjs';
 
 export function action(env = process.env) {
   const stateDir = env.HERDR_PLUGIN_STATE_DIR;
@@ -22,7 +22,16 @@ export function action(env = process.env) {
     // Git resolves symlink ancestors (such as macOS /var -> /private/var).
     // Compare both paths in the same physical namespace.
     const cwd = realpathSync(requestedCwd);
-    const localRoot = realpathSync(git(cwd, ['rev-parse', '--show-toplevel']).replace(/\n$/, ''));
+    let localRoot;
+    try { localRoot = realpathSync(git(cwd, ['rev-parse', '--show-toplevel'], { env: { LC_ALL: 'C' } }).replace(/\n$/, '')); }
+    catch (error) {
+      if (!/not a git repository/i.test(error.message)) throw error;
+      const message = `Sprites needs a Git project. ${JSON.stringify(cwd)} is not a Git repository. For a new project, run: git -C ${quote(cwd)} init. Then start the agent again. Or focus a pane in an existing Git worktree. No commit is required.`;
+      // Action invocation is asynchronous; surface this preflight failure in Herdr too.
+      try { run(herdr, ['notification', 'show', 'Sprites needs a Git project', '--body', `Initialize ${JSON.stringify(cwd)} with git init, or switch to an existing Git worktree. Then start the agent again.`, '--sound', 'none'], { timeout: 5000 }); }
+      catch { /* Notification delivery must not hide the actionable action error. */ }
+      throw new Error(message);
+    }
     const relative = path.relative(localRoot, cwd);
     if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error('Pane is outside its Git worktree.');
     run(cfg.spriteBin, ['list', '-o', cfg.org]); // Authenticate before creating a pane.
