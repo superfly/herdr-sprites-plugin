@@ -12,6 +12,27 @@ contexts = ["workspace", "pane"]
 command = ["node", "src/action.mjs"]
 
 [[actions]]
+id = "start-claude"
+title = "Start Claude Code in a new Sprite"
+description = "Launch Claude Code for this Sprite, using shared settings and overriding the configured agent and command."
+contexts = ["workspace", "pane"]
+command = ["node", "src/action.mjs"]
+
+[[actions]]
+id = "start-codex"
+title = "Start Codex in a new Sprite"
+description = "Launch Codex for this Sprite, using shared settings and overriding the configured agent and command."
+contexts = ["workspace", "pane"]
+command = ["node", "src/action.mjs"]
+
+[[actions]]
+id = "start-opencode"
+title = "Start OpenCode in a new Sprite"
+description = "Launch OpenCode for this Sprite, using shared settings and overriding the configured agent and command."
+contexts = ["workspace", "pane"]
+command = ["node", "src/action.mjs"]
+
+[[actions]]
 id = "reconnect"
 title = "Reconnect to agent Sprite"
 contexts = ["pane"]

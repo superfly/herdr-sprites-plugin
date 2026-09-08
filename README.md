@@ -43,6 +43,16 @@ herdr plugin action invoke start-agent --plugin sprites
 
 The action creates a split pane and launches setup there. Setup clears the launch command from the fresh pane, then shows animated progress steps and elapsed times before handing the terminal to the agent. The command may briefly appear before setup starts because Herdr launches it through the shell. Reconnect preserves existing scrollback. Non-interactive output stays plain; `NO_COLOR` disables colors. Action results and errors are available through `herdr plugin log list --plugin sprites`. Its `setup-launched` result is asynchronous: use Info or read the new pane to confirm setup completed. Claude and Codex reuse your local login automatically when one is available. Otherwise, sign in inside the remote terminal. Authentication saved inside the Sprite survives reconnects and idle suspension.
 
+Choose a harness for a single launch without editing configuration:
+
+```sh
+herdr plugin action invoke start-claude --plugin sprites
+herdr plugin action invoke start-codex --plugin sprites
+herdr plugin action invoke start-opencode --plugin sprites
+```
+
+These actions use the named harness's default command and override both `agent` and `command` for the new Sprite. Shared settings (`org`, `namePrefix`, `maxTransferMiB`, `auth`, and `spriteBin`) still apply. Your config file stays unchanged. Use `start-agent` to honor a configured custom command or arguments. Each Sprite keeps its selected harness on reconnect.
+
 ## Agent login handoff
 
 `"auth": "auto"` is the default. For the selected standard `claude` or `codex` command, setup transfers the local login once before the first agent launch. It also works when reconnecting a stopped Sprite created by an older plugin version. Set `"auth": "none"` before creating a Sprite to keep authentication entirely manual. Disabling handoff does not revoke credentials already stored remotely.
@@ -65,6 +75,7 @@ The plugin ID is `sprites`; action IDs below correspond to the issue's `sprites.
 
 | Action | Behavior |
 | --- | --- |
+| `start-claude` / `start-codex` / `start-opencode` | Launch the named harness in a new Sprite using shared settings. |
 | `start-agent` | Create a dedicated Sprite, upload the current worktree, checkpoint, and launch an agent in a new split. |
 | `reconnect` | Reattach a detached remote agent session. If it exited, checkpoint and start the same configured command again, preserving remote files and authentication. |
 | `pull` | Export current remote files, refuse overlapping local edits, and apply changes locally without changing the local Git index. Stop the agent first. |
@@ -83,6 +94,8 @@ Example keybinding in Herdr's `config.toml`:
 key = "prefix+shift+s"
 command = "herdr plugin action invoke start-agent --plugin sprites"
 ```
+
+See the [Vercel and E2B action comparison](docs/action-comparison.md) for their exposed actions and differences in pane/workspace targeting.
 
 ## Worktree transfer
 

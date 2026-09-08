@@ -141,8 +141,8 @@ try {
   passed('destroy cancellation and confirmed deletion');
   // Agent smoke tests use fresh images and real CLIs, never local credential injection.
   for (const agent of ['claude', 'codex', 'opencode']) {
-    writeConfig({ agent });
-    const started = await invoke('start-agent'); report.resources.push(started.sprite);
+    writeConfig({ agent: 'claude' }); // Explicit actions override the configured default.
+    const started = await invoke(`start-${agent}`); report.resources.push(started.sprite);
     const mapped = await prepared(started.pane);
     await until(() => sessions(mapped).length === 1, `${agent} TTY session`);
     assert.ok(mapped.installedVersion);

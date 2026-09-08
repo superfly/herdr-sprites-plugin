@@ -106,3 +106,27 @@ test('non-Git folder shows actionable notification without creating a pane or in
   assert.equal(fs.existsSync(path.join(f.dir, '.git')), false);
   assert.equal(fs.existsSync(f.env.HERDR_PLUGIN_STATE_DIR), false);
 });
+
+for (const agent of ['claude', 'codex', 'opencode']) {
+  test(`start-${agent} selects its harness without changing shared configuration`, t => {
+    const f = fixture(t), file = path.join(f.dir, 'config.json');
+    const cfg = { ...JSON.parse(fs.readFileSync(file)), agent: 'claude', command: ['custom-wrapper', '--flag'], namePrefix: 'ci-', maxTransferMiB: 128, auth: 'none' };
+    const original = JSON.stringify(cfg); fs.writeFileSync(file, original);
+    const result = f.execute({ HERDR_PLUGIN_ACTION_ID: `sprites.start-${agent}` });
+    assert.equal(result.status, 0, result.stderr);
+    const entry = load(f.env.HERDR_PLUGIN_STATE_DIR, 'w1:p2');
+    assert.equal(entry.agent, agent); assert.deepEqual(entry.command, [agent]);
+    assert.equal(entry.org, cfg.org); assert.equal(entry.spriteBin, cfg.spriteBin);
+    assert.equal(entry.auth, 'none'); assert.equal(entry.maxTransferMiB, 128);
+    assert.ok(entry.name.startsWith(`ci-${agent}-`));
+    assert.equal(fs.readFileSync(file, 'utf8'), original);
+    assert.equal(JSON.parse(result.stdout).action, `start-${agent}`);
+  });
+}
+test('start-agent preserves the configured custom command', t => {
+  const f = fixture(t), file = path.join(f.dir, 'config.json');
+  const cfg = { ...JSON.parse(fs.readFileSync(file)), command: ['codex', '--model', 'configured-model'] };
+  fs.writeFileSync(file, JSON.stringify(cfg));
+  const result = f.execute(); assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(load(f.env.HERDR_PLUGIN_STATE_DIR, 'w1:p2').command, cfg.command);
+});

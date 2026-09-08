@@ -42,13 +42,13 @@ export function withLock(stateDir, pane, fn) {
   fs.writeFileSync(fd, `${process.pid}\n`);
   try { return fn(); } finally { fs.closeSync(fd); fs.unlinkSync(lock); }
 }
-export function config(configDir) {
+export function config(configDir, agentOverride) {
   const file = path.join(configDir, 'config.json');
   const value = fs.existsSync(file) ? read(file) : {};
   if (!value.org || typeof value.org !== 'string' || value.org.startsWith('-')) throw new Error(`Set your Sprite organization in ${file}: {"org":"your-org","agent":"claude"}`);
-  const agent = value.agent ?? 'claude';
+  const agent = agentOverride ?? value.agent ?? 'claude';
   const commands = { claude: ['claude'], codex: ['codex'], opencode: ['opencode'] };
-  const command = value.command ?? commands[agent];
+  const command = agentOverride ? commands[agent] : value.command ?? commands[agent];
   if (!/^[a-z][a-z0-9_-]*$/.test(agent) || !Array.isArray(command) || !command.length || command.some(s => typeof s !== 'string' || !s || s.includes('\0')))
     throw new Error('Configure agent and a non-empty command argv array.');
   const auth = value.auth ?? 'auto';

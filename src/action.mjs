@@ -15,8 +15,9 @@ export function action(env = process.env) {
   if (!pane) throw new Error('A focused pane is required.');
   const herdr = env.HERDR_BIN_PATH ?? 'herdr';
   const hr = args => run(herdr, args);
-  if (action === 'start-agent') {
-    const cfg = config(configDir);
+  const launchActions = { 'start-claude': 'claude', 'start-codex': 'codex', 'start-opencode': 'opencode' };
+  if (action === 'start-agent' || Object.hasOwn(launchActions, action)) {
+    const cfg = config(configDir, launchActions[action]);
     const requestedCwd = context.focused_pane_cwd ?? context.workspace_cwd;
     if (!requestedCwd || !path.isAbsolute(requestedCwd)) throw new Error('A Git workspace is required.');
     // Git resolves symlink ancestors (such as macOS /var -> /private/var).
