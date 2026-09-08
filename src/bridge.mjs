@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { load, save, withLock, prepare, finishSetup, checkpoint, sprite, sessions } from './core.mjs';
 const [mode, stateDir, pane] = process.argv.slice(2);
-const progress = message => console.error(`[sprites] ${message}`);
+const { createProgress } = await import('./progress.mjs');
+const display = createProgress({ fresh: mode === 'start' });
+const progress = display.step;
 try {
   withLock(stateDir, `${pane}:connection`, () => {
   const entry = withLock(stateDir, pane, () => {
@@ -26,9 +28,9 @@ try {
   // The CLI owns raw TTY setup, resize propagation, signals, and Ctrl+\ detach.
   const args = entry.attachSession ? ['sessions', 'attach', entry.attachSession, '--no-port-forward']
     : ['exec', '--tty', '--no-port-forward', '--', 'sh', `${entry.remoteBase}/run.sh`];
-  progress(entry.attachSession ? 'Reattaching to agent terminal…' : `Starting ${entry.agent} terminal…`);
+  display.finish(entry.attachSession ? 'Reconnecting to your agent' : `${entry.agent} is ready — opening terminal`);
   sprite(entry, args, {
     stdio: 'inherit', timeout: undefined, env: { ...process.env, HERDR_AGENT: entry.agent },
   });
   });
-} catch (error) { console.error(error.message); process.exitCode = 1; }
+} catch (error) { if (!display.finish(error.message, true)) console.error(error.message); process.exitCode = 1; }

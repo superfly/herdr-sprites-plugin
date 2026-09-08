@@ -41,7 +41,7 @@ Invoke from a Git worktree in Herdr:
 herdr plugin action invoke start-agent --plugin sprites
 ```
 
-The action creates a split pane and launches setup there. Action results and errors are available through `herdr plugin log list --plugin sprites`. Its `setup-launched` result is asynchronous: use Info or read the new pane to confirm setup completed. Initial provider authentication takes place inside the remote agent's terminal; no host agent credentials are copied. Authentication saved inside the Sprite survives reconnects and idle suspension.
+The action creates a split pane and launches setup there. Setup clears the launch command from the fresh pane, then shows animated progress steps and elapsed times before handing the terminal to the agent. The command may briefly appear before setup starts because Herdr launches it through the shell. Reconnect preserves existing scrollback. Non-interactive output stays plain; `NO_COLOR` disables colors. Action results and errors are available through `herdr plugin log list --plugin sprites`. Its `setup-launched` result is asynchronous: use Info or read the new pane to confirm setup completed. Initial provider authentication takes place inside the remote agent's terminal; no host agent credentials are copied. Authentication saved inside the Sprite survives reconnects and idle suspension.
 
 ## Actions
 
