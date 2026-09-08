@@ -15,7 +15,7 @@ The implementation was tested locally on a Linux Sprite with Node.js 24, Git, He
 | Info and per-pane mapping | Private atomic per-pane state plus live session query | Real info action, setup state, running sessions; state isolation and failure tests |
 | Destroy | Confirm exact Sprite name, delete, retain tombstone | Real cancellation and confirmed deletion; test resources checked for cleanup |
 | Checkpoint/restore | Checkpoint before new run, manual checkpoint, safety checkpoint before confirmed restore | Real checkpoint creation, cancellation, restoration of changed file, local file preservation, reconnect |
-| Target repository and discovery metadata | Origin `superfly/herdr-sprites-plugin`, root manifest, `herdr-plugin` topic | Repository is private; marketplace discovery additionally requires public visibility |
+| Target repository and discovery metadata | Pushed `main` to `superfly/herdr-sprites-plugin`; root manifest present | Repository is private. Topic update was denied (HTTP 403); a repository admin must add `herdr-plugin` and make it public for marketplace discovery |
 
 The optional fleet, host-credential discovery/injection, and automatic worktree-removal deletion ideas are not part of this first version. Agent credentials are intentionally established inside each Sprite. No authenticated model task or paid inference is included in the smoke test.
 
@@ -29,3 +29,5 @@ The optional fleet, host-credential discovery/injection, and automatic worktree-
 - The org concurrent-Sprite limit briefly rejected one creation. The failed mapping retained the intended name and error. After an authenticated list confirmed absence and capacity freed, that rejected creation was retried and the live test continued.
 
 The repeatable opt-in test is `scripts/live-test.mjs`. Its final receipt is [live-test.json](../verification/live-test.json). It records versions and assertions, not authentication-screen contents. Test Sprites are created only for this test and destroyed afterward; unrelated Sprites and services are not touched.
+
+The final clean live run passed all 11 assertions, including all three agent CLIs, with no capacity retries. All test Sprites and test Herdr services were confirmed absent afterward. The final offline run passed all 20 tests. The code was pushed to `main`; the current GitHub token cannot read Actions runs (HTTP 403), so remote CI results are unverified.
