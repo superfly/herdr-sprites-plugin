@@ -8,6 +8,7 @@
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check": "node --check src/action.mjs && node --check src/core.mjs && node --check src/workspace.mjs && node --check src/bridge.mjs && node --check src/confirm.mjs && node --check scripts/live-test.mjs && npm test"
+    "check": "node --check src/action.mjs && node --check src/core.mjs && node --check src/workspace.mjs && node --check src/bridge.mjs && node --check src/confirm.mjs && node --check scripts/live-test.mjs && node --check scripts/live-support.mjs && node --check scripts/cleanup-live-test.mjs && npm test",
+    "test:e2e": "node scripts/live-test.mjs"
   }
 }

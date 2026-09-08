@@ -1,0 +1,75 @@
+name: Real Sprite E2E
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: real-sprite-e2e
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    # Repository secrets must never be exposed to arbitrary PR/branch code.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SPRITES_TEST_ORG: ${{ vars.SPRITES_TEST_ORG }}
+      HERDR_TEST_SERVER_MODE: process
+    steps:
+      - name: Set test paths
+        run: |
+          echo "HERDR_TEST_BIN=$RUNNER_TEMP/e2e-bin/herdr" >> "$GITHUB_ENV"
+          echo "HERDR_TEST_RUN_DIR=$RUNNER_TEMP/sprite-e2e-run" >> "$GITHUB_ENV"
+          echo "HERDR_TEST_REPORT=$RUNNER_TEMP/sprite-e2e-report.json" >> "$GITHUB_ENV"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+      - name: Check test credentials
+        env:
+          SPRITE_TOKEN: ${{ secrets.SPRITE_TOKEN }}
+        run: |
+          test -n "$SPRITE_TOKEN" || { echo 'Add the SPRITE_TOKEN repository Actions secret.'; exit 1; }
+          test -n "$SPRITES_TEST_ORG" || { echo 'Add the SPRITES_TEST_ORG repository Actions variable.'; exit 1; }
+      - name: Install pinned CLIs
+        run: |
+          mkdir -p "$RUNNER_TEMP/e2e-bin"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/herdrdev/herdr/releases/download/v0.9.0/herdr-linux-x86_64 \
+            -o "$HERDR_TEST_BIN"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://sprites-binaries.t3.storage.dev/client/2026-09-02/sprite-linux-x86_64 \
+            -o "$RUNNER_TEMP/e2e-bin/sprite"
+          echo "4fa1a01158dd8043da92d31b270780b0dcc10603038d9b61cac4d81ab63fb71f  $HERDR_TEST_BIN" | sha256sum --check
+          echo "3f1d14a2a4886e98993c70c9b69270223cfb636e2a143afe4f8dfb67bedbb6c7  $RUNNER_TEMP/e2e-bin/sprite" | sha256sum --check
+          chmod +x "$HERDR_TEST_BIN" "$RUNNER_TEMP/e2e-bin/sprite"
+          echo "$RUNNER_TEMP/e2e-bin" >> "$GITHUB_PATH"
+      - run: npm run check
+      - name: Exercise real Sprite lifecycle and agent startup
+        timeout-minutes: 20
+        env:
+          SPRITE_TOKEN: ${{ secrets.SPRITE_TOKEN }}
+        run: npm run test:e2e
+      - name: Reconcile test Sprite cleanup
+        if: always()
+        timeout-minutes: 5
+        env:
+          SPRITE_TOKEN: ${{ secrets.SPRITE_TOKEN }}
+        run: |
+          if [ -d "$HERDR_TEST_RUN_DIR" ]; then
+            node scripts/cleanup-live-test.mjs
+          fi
+      - name: Upload E2E receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: real-sprite-e2e-report
+          path: ${{ runner.temp }}/sprite-e2e-report.json
+          if-no-files-found: warn
+          retention-days: 7

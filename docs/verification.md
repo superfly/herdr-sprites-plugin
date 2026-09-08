@@ -1,6 +1,6 @@
 # Verification
 
-The implementation was tested locally on a Linux Sprite with Node.js 24, Git, Herdr 0.9.0, and the installed Sprite CLI. `npm run check` runs syntax checks and 20 automated tests with no npm dependencies. CI repeats the offline tests on Linux/macOS and Node 22/24; remote CI status is separate from the local results.
+The implementation was tested locally on a Linux Sprite with Node.js 24, Git, Herdr 0.9.0, and the installed Sprite CLI. `npm run check` runs syntax checks and 27 automated tests with no npm dependencies. CI repeats the offline tests on Linux/macOS and Node 22/24; remote CI status is separate from the local results.
 
 ## Requirements and evidence
 
@@ -31,3 +31,11 @@ The optional fleet, host-credential discovery/injection, and automatic worktree-
 The repeatable opt-in test is `scripts/live-test.mjs`. Its final receipt is [live-test.json](../verification/live-test.json). It records versions and assertions, not authentication-screen contents. Test Sprites are created only for this test and destroyed afterward; unrelated Sprites and services are not touched.
 
 The final clean live run passed all 11 assertions, including all three agent CLIs, with no capacity retries. All test Sprites and test Herdr services were confirmed absent afterward. The final offline run passed all 20 tests. The code was pushed to `main`; the current GitHub token cannot read Actions runs (HTTP 403), so remote CI results are unverified.
+
+## Real-Sprite CI workflow
+
+The manual `.github/workflows/e2e.yml` workflow uses repository secret `SPRITE_TOKEN` and repository variable `SPRITES_TEST_ORG`. It is restricted to `main` and uses checksum-pinned Herdr 0.9.0 and Sprite CLI 2026-09-02 binaries. Actionlint 1.7.12 validates both workflows.
+
+The GitHub-compatible subprocess path was exercised locally with those exact binaries: all 11 live assertions passed, all four dedicated test Sprites were verified absent, and the standalone fallback cleanup also passed idempotently. See [the local CI-mode receipt](../verification/ci-e2e-local.json). The expanded offline suite passes 27 tests, including cleanup ownership, incomplete creation, failed deletion, and token redaction. This local run uses the existing CLI authentication; the configured GitHub secret will be exercised by the dispatched Actions run.
+
+TruffleHog 3.97.4 was run locally against Git history and the working tree with `--no-verification --no-update --json --fail --fail-on-scan-errors`. Both scans returned zero findings. Credential verification was disabled so potential findings would not be sent to external providers. TruffleHog is not added to CI.

@@ -6,12 +6,18 @@ import os from 'node:os';
 import assert from 'node:assert/strict';
 import { run, ROOT, load, remote, sessions, sprite, read, save, bridgeCommand } from '../src/core.mjs';
 import { git } from '../src/workspace.mjs';
+import { testEnvironment, startServer, cleanupSprites, redact } from './live-support.mjs';
 const org = process.env.SPRITES_TEST_ORG;
 const herdr = process.env.HERDR_TEST_BIN;
 if (!org || !herdr) throw new Error('Set SPRITES_TEST_ORG and absolute HERDR_TEST_BIN. This test creates and deletes test Sprites.');
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'herdr-sprites-live-'));
-const service = `herdr-plugin-test-${process.pid}`;
-const env = { ...process.env, XDG_CONFIG_HOME: `${dir}/config`, XDG_STATE_HOME: `${dir}/state`, XDG_RUNTIME_DIR: `${dir}/runtime`, HERDR_SOCKET_PATH: `${dir}/herdr.sock`, SHELL: '/bin/bash' };
+const dir = process.env.HERDR_TEST_RUN_DIR || fs.mkdtempSync(path.join(os.tmpdir(), 'herdr-sprites-live-'));
+if (!path.isAbsolute(dir)) throw new Error('HERDR_TEST_RUN_DIR must be absolute');
+if (process.env.HERDR_TEST_RUN_DIR) fs.mkdirSync(dir, { mode: 0o700 }); // Refuse reused state.
+const reportPath = process.env.HERDR_TEST_REPORT || path.join(ROOT, 'verification/live-test.json');
+const env = testEnvironment(dir);
+let server, interrupted = false;
+const interrupt = () => { interrupted = true; };
+process.on('SIGINT', interrupt); process.on('SIGTERM', interrupt);
 for (const name of ['config', 'state', 'runtime', 'project']) fs.mkdirSync(`${dir}/${name}`, { mode: 0o700 });
 const hr = args => run(herdr, args, { env });
 const json = args => JSON.parse(hr(args)).result;
@@ -20,6 +26,7 @@ async function until(fn, description, timeout = 90000) {
   const deadline = Date.now() + timeout;
   let last;
   while (Date.now() < deadline) {
+    if (interrupted) throw new Error('E2E interrupted; cleaning up test resources');
     try { const value = fn(); if (value) return value; } catch (error) { if (error.fatal) throw error; last = error; }
     await delay(300);
   }
@@ -67,8 +74,9 @@ async function confirm(action, entry, approve) {
   await until(() => approve ? load(stateDir, entry.pane).phase === (action === 'restore' ? 'restored' : 'destroyed') : !json(['pane', 'list']).panes.some(p => p.pane_id === popup.pane_id), `${action} confirmation`);
 }
 try {
-  run('sprite-env', ['services', 'create', service, '--cmd', herdr, '--args', 'server', '--env', ['XDG_CONFIG_HOME', 'XDG_STATE_HOME', 'XDG_RUNTIME_DIR', 'HERDR_SOCKET_PATH', 'SHELL'].map(k => `${k}=${env[k]}`).join(','), '--dir', `${dir}/project`, '--no-stream']);
-  await until(() => fs.existsSync(env.HERDR_SOCKET_PATH), 'Herdr socket');
+  const mode = process.env.HERDR_TEST_SERVER_MODE || (fs.existsSync('/.sprite') ? 'sprite' : 'process');
+  server = await startServer(dir, herdr, mode);
+  await until(() => { server.assertRunning(); return fs.existsSync(env.HERDR_SOCKET_PATH); }, 'Herdr socket');
   json(['plugin', 'link', ROOT]);
   cfgDir = hr(['plugin', 'config-dir', 'sprites']);
   stateDir = `${dir}/state/herdr/plugins/sprites`;
@@ -145,15 +153,15 @@ try {
     await confirm('destroy', load(stateDir, mapped.pane), true);
   }
   report.ok = true;
-} catch (error) { report.ok = false; report.error = error.stack; console.error(error); process.exitCode = 1; }
+} catch (error) { report.ok = false; report.error = redact(error.stack); console.error(report.error); process.exitCode = 1; }
 finally {
-  for (const name of report.resources) {
-    // Names come exclusively from this test's start-action results.
-    try { run('sprite', ['-o', org, 'destroy', name, '--force']); } catch {}
-  }
-  try { run('sprite-env', ['services', 'delete', service]); } catch {}
+  try { await server?.stop(); }
+  catch (error) { report.ok = false; report.serverCleanupError = redact(error.message); process.exitCode = 1; }
+  try { report.cleanup = cleanupSprites(dir, org); }
+  catch (error) { report.ok = false; report.cleanupError = redact(error.message); process.exitCode = 1; }
   report.finished = new Date().toISOString();
-  fs.mkdirSync(path.join(ROOT, 'verification'), { recursive: true });
-  fs.writeFileSync(path.join(ROOT, 'verification', 'live-test.json'), JSON.stringify(report, null, 2));
-  console.log(`Report: ${ROOT}/verification/live-test.json; test files: ${dir}`);
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2), { mode: 0o600 });
+  process.off('SIGINT', interrupt); process.off('SIGTERM', interrupt);
+  console.log(`Report: ${reportPath}; test files: ${dir}`);
 }

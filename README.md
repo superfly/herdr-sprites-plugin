@@ -88,7 +88,7 @@ npm run check
 
 The test suite covers exact-byte transfers, binary files, modes, unusual paths, credential exclusions, conflicts, state isolation, locks, CLI parsing, and errors.
 
-An opt-in integration test runs a real isolated Herdr server in a Sprite VM and creates disposable Sprites. It requires an authenticated Sprite CLI and a downloaded Herdr binary. It exercises the entire action lifecycle, then starts the three real agent CLIs without injecting host credentials:
+An opt-in integration test runs a real isolated Herdr server and creates disposable Sprites. On a Sprite VM it uses `sprite-env services`; on other hosts it manages a short-lived Herdr subprocess. It requires an authenticated Sprite CLI and a downloaded Herdr binary. It exercises the entire action lifecycle, then starts the three real agent CLIs without injecting host credentials:
 
 ```sh
 SPRITES_TEST_ORG=your-test-org \
@@ -96,7 +96,34 @@ HERDR_TEST_BIN=/absolute/path/to/herdr \
 node scripts/live-test.mjs
 ```
 
-The script deletes its test Sprites and Herdr service afterward. It writes `verification/live-test.json` and retains local fixture files under its printed temporary directory. Agent smoke tests verify installation and interactive startup, not paid model inference or provider authentication. See [verification notes](docs/verification.md).
+The script stops its test Herdr server, deletes its test Sprites, and verifies their absence afterward. It writes `verification/live-test.json` and retains local fixture files under its printed temporary directory. Agent smoke tests verify installation and interactive startup, not paid model inference or provider authentication. See [verification notes](docs/verification.md).
+
+## GitHub Actions E2E
+
+Configure these repository Actions settings:
+
+- **Secret `SPRITE_TOKEN`**: a Sprite token for a dedicated test organization. It needs permission to create/destroy Sprites, exec, and create/restore checkpoints. The CLI reads the token directly from its environment; no login command or token file is needed.
+- **Variable `SPRITES_TEST_ORG`**: the organization name associated with that token.
+
+Run **Actions → Real Sprite E2E → Run workflow**, selecting **main**, or:
+
+```sh
+gh workflow run e2e.yml --repo superfly/herdr-sprites-plugin --ref main
+```
+
+This manual workflow is restricted to `main`. It never runs with secrets on pull requests, and runs are serialized to reduce quota pressure. It downloads checksum-verified Herdr 0.9.0 and Sprite CLI 2026-09-02, runs the offline tests, then performs the same live lifecycle and Claude/Codex/OpenCode startup checks. No model-provider credentials or paid inference are required; real Sprite usage may incur charges.
+
+The normal test cleanup and a separate `always()` cleanup step both reconcile this run's recorded creation intents, including a Sprite whose create response was interrupted. Cleanup fails visibly if it cannot prove those Sprites are gone. A hard runner loss may prevent cleanup; the recorded `herdr-*` names identify test resources for manual removal in that case.
+
+The `real-sprite-e2e-report` artifact contains assertions, versions, resource names, and cleanup results. It does not include CLI configuration, tokens, server logs, or terminal login screens. Local equivalents:
+
+```sh
+HERDR_TEST_SERVER_MODE=process \
+SPRITES_TEST_ORG=your-test-org HERDR_TEST_BIN=/absolute/path/to/herdr \
+npm run test:e2e
+```
+
+`HERDR_TEST_RUN_DIR` optionally selects a fresh absolute run directory; existing directories are rejected to prevent state reuse. `HERDR_TEST_REPORT` optionally redirects the receipt. `scripts/cleanup-live-test.mjs` can reconcile a retained run directory using those same environment variables.
 
 ## Recovery
 
