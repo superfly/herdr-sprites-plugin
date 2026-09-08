@@ -33,7 +33,7 @@ For another agent, or to pass arguments, supply an argv array:
 }
 ```
 
-`agent` sets the `HERDR_AGENT` detection hint; use a kind Herdr recognizes. `command` runs in the remote workspace, without local shell expansion. `spriteBin` optionally selects an absolute Sprite CLI path. The organization and command are saved per mapping, so later config changes do not retarget existing Sprites.
+`agent` sets the `HERDR_AGENT` detection hint; use a kind Herdr recognizes. `command` runs in the remote workspace, without local shell expansion. `namePrefix` defaults to `herdr-`; set it to `ci-` for credentials restricted to `ci-*` names. It must be 2–20 lowercase letters, digits or hyphens, start with a letter, and end with a hyphen. `spriteBin` optionally selects an absolute Sprite CLI path. The organization and command are saved per mapping, so later config changes do not retarget existing Sprites.
 
 Invoke from a Git worktree in Herdr:
 
@@ -105,6 +105,8 @@ Configure these repository Actions settings:
 - **Secret `SPRITE_TOKEN`**: a Sprite token for a dedicated test organization. It needs permission to create/destroy Sprites, exec, and create/restore checkpoints. Use only the token value, without a `Bearer` prefix or shell command. The harness trims surrounding whitespace (including copied trailing newlines) and rejects embedded whitespace/control characters before running the CLI. The CLI reads the token from its environment; no login command or token file is needed.
 - **Variable `SPRITES_TEST_ORG`**: the organization name associated with that token.
 
+The E2E test creates `ci-herdr-*` Sprites, so a token restricted to `ci-*` names is supported.
+
 Run **Actions → Real Sprite E2E → Run workflow**, selecting **main**, or:
 
 ```sh
@@ -113,7 +115,7 @@ gh workflow run e2e.yml --repo superfly/herdr-sprites-plugin --ref main
 
 This manual workflow is restricted to `main`. It never runs with secrets on pull requests, and runs are serialized to reduce quota pressure. It downloads checksum-verified Herdr 0.9.0 and Sprite CLI 2026-09-02, runs the offline tests, then performs the same live lifecycle and Claude/Codex/OpenCode startup checks. No model-provider credentials or paid inference are required; real Sprite usage may incur charges.
 
-The normal test cleanup and a separate `always()` cleanup step both reconcile this run's recorded creation intents, including a Sprite whose create response was interrupted. Cleanup fails visibly if it cannot prove those Sprites are gone. A hard runner loss may prevent cleanup; the recorded `herdr-*` names identify test resources for manual removal in that case.
+The normal test cleanup and a separate `always()` cleanup step both reconcile this run's recorded creation intents, including a Sprite whose create response was interrupted. Cleanup fails visibly if it cannot prove those Sprites are gone. A hard runner loss may prevent cleanup; the recorded `ci-herdr-*` names identify test resources for manual removal in that case.
 
 The `real-sprite-e2e-report` artifact contains assertions, versions, resource names, and cleanup results. It does not include CLI configuration, tokens, server logs, or terminal login screens. Local equivalents:
 

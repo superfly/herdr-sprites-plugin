@@ -29,6 +29,7 @@ test('start action binds pane to immutable org and launches quoted bridge, witho
   assert.equal(result.status, 0, result.stderr);
   assert.equal(JSON.parse(result.stdout).phase, 'setup-launched');
   const entry = load(f.env.HERDR_PLUGIN_STATE_DIR, 'w1:p2');
+  assert.match(entry.name, /^herdr-codex-[a-f0-9]{12}$/);
   assert.equal(entry.org, 'test-org'); assert.equal(entry.created, false);
   assert.equal(entry.phase, 'queued'); assert.equal(entry.agent, 'codex');
   const calls = fs.readFileSync(f.calls, 'utf8').trim().split('\n').map(JSON.parse);
@@ -74,4 +75,16 @@ test('start accepts a subdirectory whose name starts with two dots', t => {
   assert.equal(result.status, 0, result.stderr);
   const entry = load(f.env.HERDR_PLUGIN_STATE_DIR, 'w1:p2');
   assert.equal(entry.remoteCwd, `${entry.remoteRoot}/..work`);
+});
+
+test('start uses the configured CI prefix in its saved name and remote paths', t => {
+  const f = fixture(t);
+  const file = path.join(f.dir, 'config.json');
+  const cfg = JSON.parse(fs.readFileSync(file, 'utf8'));
+  fs.writeFileSync(file, JSON.stringify({ ...cfg, namePrefix: 'ci-herdr-' }));
+  const result = f.execute();
+  assert.equal(result.status, 0, result.stderr);
+  const entry = load(f.env.HERDR_PLUGIN_STATE_DIR, 'w1:p2');
+  assert.match(entry.name, /^ci-herdr-codex-[a-f0-9]{12}$/);
+  assert.equal(entry.remoteBase, `/home/sprite/.herdr/${entry.name}`);
 });

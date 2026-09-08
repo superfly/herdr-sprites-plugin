@@ -29,7 +29,7 @@ export function action(env = process.env) {
     const split = JSON.parse(hr(['pane', 'split', pane, '--direction', 'right', '--ratio', '0.5', '--cwd', cwd, '--focus']));
     const target = split?.result?.pane?.pane_id;
     if (!target) throw new Error('Herdr did not return a split pane ID.');
-    const name = `herdr-${cfg.agent.slice(0, 18)}-${randomBytes(6).toString('hex')}`;
+    const name = `${cfg.namePrefix}${cfg.agent.slice(0, 18)}-${randomBytes(6).toString('hex')}`;
     const remoteBase = `/home/sprite/.herdr/${name}`;
     const entry = { ...cfg, pane: target, name, localRoot, remoteBase, remoteRoot: `${remoteBase}/workspace`, remoteCwd: path.posix.join(remoteBase, 'workspace', relative), phase: 'queued', created: false, prepared: false };
     save(stateDir, entry);

@@ -30,7 +30,7 @@ export function testMappings(dir, org) {
     const file = path.join(state, item, 'entry.json');
     if (!fs.existsSync(file)) continue;
     const entry = read(file);
-    if (entry.org !== org || !/^herdr-(claude|codex|opencode)-[a-f0-9]{12}$/.test(entry.name)
+    if (entry.org !== org || !/^(?:ci-)?herdr-(claude|codex|opencode)-[a-f0-9]{12}$/.test(entry.name)
       || entry.localRoot !== fs.realpathSync(path.join(dir, 'project')))
       throw new Error('Refusing cleanup of a mapping outside this test run');
     entries.push(entry);

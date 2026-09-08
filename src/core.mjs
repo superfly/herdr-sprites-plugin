@@ -50,7 +50,10 @@ export function config(configDir) {
   const command = value.command ?? commands[agent];
   if (!/^[a-z][a-z0-9_-]*$/.test(agent) || !Array.isArray(command) || !command.length || command.some(s => typeof s !== 'string' || !s || s.includes('\0')))
     throw new Error('Configure agent and a non-empty command argv array.');
-  return { org: value.org, agent, command, spriteBin: value.spriteBin ?? 'sprite' };
+  const namePrefix = value.namePrefix ?? 'herdr-';
+  if (typeof namePrefix !== 'string' || namePrefix.length > 20 || !/^[a-z][a-z0-9-]*-$/.test(namePrefix))
+    throw new Error('Configure namePrefix as lowercase letters, digits and hyphens, starting with a letter and ending with a hyphen (2–20 characters).');
+  return { org: value.org, agent, command, namePrefix, spriteBin: value.spriteBin ?? 'sprite' };
 }
 export function sprite(entry, args, options) { return run(entry.spriteBin, ['-o', entry.org, '-s', entry.name, ...args], options); }
 export function upload(entry, local, dest) {

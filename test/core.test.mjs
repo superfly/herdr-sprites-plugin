@@ -61,3 +61,15 @@ test('shell quoting preserves metacharacters without expansion', t => {
   assert.equal(result.stdout, text);
   assert.ok(bridgeCommand('/state with spaces', 'w1:p1', 'codex').startsWith("HERDR_AGENT='codex' "));
 });
+
+test('configuration defaults and validates Sprite name prefixes', t => {
+  const { dir } = fixture(t);
+  const write = namePrefix => fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ org: 'org', namePrefix }));
+  write(undefined); assert.equal(config(dir).namePrefix, 'herdr-');
+  for (const prefix of ['ci-', 'ci-herdr-']) {
+    write(prefix); assert.equal(config(dir).namePrefix, prefix);
+  }
+  for (const prefix of ['', '-', '-ci-', 'CI-', 'ci', 'ci/../', 'ci-\\n', 42, 'a'.repeat(20) + '-']) {
+    write(prefix); assert.throws(() => config(dir), /namePrefix/);
+  }
+});

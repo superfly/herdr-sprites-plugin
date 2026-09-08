@@ -74,3 +74,16 @@ test('malformed tokens fail early without exposing their contents; local config 
   const localEnv = {}; normalizeSpriteToken(localEnv);
   assert.equal(Object.hasOwn(localEnv, 'SPRITE_TOKEN'), false);
 });
+
+test('cleanup accepts recorded CI names and preserves unrelated CI Sprites', t => {
+  const { dir, entry, write } = fixture(t), deleted = [];
+  entry.name = 'ci-herdr-codex-123456789abc'; write();
+  const result = cleanupSprites(dir, 'test', (bin, args) => {
+    if (args[0] === 'list') return 'ci-unrelated';
+    deleted.push(args[3]); return '';
+  });
+  assert.deepEqual(deleted, [entry.name]);
+  assert.deepEqual(result, { resources: [entry.name], remaining: [] });
+  entry.name = 'ci-unrelated'; write();
+  assert.throws(() => cleanupSprites(dir, 'test', () => assert.fail('must not issue a request')), /Refusing/);
+});
