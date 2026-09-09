@@ -1,12 +1,12 @@
 # Verification
 
-The implementation was tested locally on a Linux Sprite with Node.js 24, Git, Herdr 0.9.0, and the installed Sprite CLI. `npm run check` runs syntax checks and 27 automated tests with no npm dependencies. CI repeats the offline tests on Linux/macOS and Node 22/24; remote CI status is separate from the local results.
+The implementation was tested locally on a Linux Sprite with Node.js 24, Git, Herdr 0.9.0, and the installed Sprite CLI. `npm run check` runs syntax checks and automated tests with no npm dependencies. CI repeats the offline tests on Linux/macOS and Node 22/24; remote CI status is separate from the local results. Counts and live results below describe earlier runs, not a fresh verification of every subsequent change.
 
 ## Requirements and evidence
 
 | Issue #106 requirement | Implementation | Evidence |
 | --- | --- | --- |
-| Herdr plugin and manifest | Root `herdr-plugin.toml`, `sprites` plugin ID, eight actions and confirmation pane | Parsed by Python TOML parser and linked/listed by real Herdr 0.9.0 |
+| Herdr plugin and manifest | Root `herdr-plugin.toml`, `sprites` plugin ID, eleven actions and confirmation pane | Parsed by Python TOML parser; original eight-action version linked/listed by real Herdr 0.9.0 |
 | Create Sprite and transfer worktree | `start-agent`, `prepare`, `workspace.mjs` | Real split, Sprite creation, uncommitted upload, excluded `.env`, nested/empty current directory |
 | Interactive coding agents with detection hint | Bridge exports `HERDR_AGENT`; `sprite exec --tty --no-port-forward` | Real TTY fixture and real Claude Code, Codex, OpenCode startup; versions recorded in live report |
 | Reconnect | Attach existing TTY session or launch same command in existing filesystem | Detach and reconnect retain the same remote session ID; fresh launch after restore |
@@ -15,9 +15,9 @@ The implementation was tested locally on a Linux Sprite with Node.js 24, Git, He
 | Info and per-pane mapping | Private atomic per-pane state plus live session query | Real info action, setup state, running sessions; state isolation and failure tests |
 | Destroy | Confirm exact Sprite name, delete, retain tombstone | Real cancellation and confirmed deletion; test resources checked for cleanup |
 | Checkpoint/restore | Checkpoint before new run, manual checkpoint, safety checkpoint before confirmed restore | Real checkpoint creation, cancellation, restoration of changed file, local file preservation, reconnect |
-| Target repository and discovery metadata | Pushed `main` to `superfly/herdr-sprites-plugin`; root manifest present | Repository is private. Topic update was denied (HTTP 403); a repository admin must add `herdr-plugin` and make it public for marketplace discovery |
+| Target repository and discovery metadata | Pushed `main` to `superfly/herdr-sprites-plugin`; root manifest present | At the earlier publication attempt, the repository was private and the topic update was denied (HTTP 403). Recheck settings using the [release checklist](marketplace.md). |
 
-The optional fleet, host-credential discovery/injection, and automatic worktree-removal deletion ideas are not part of this first version. Agent credentials are intentionally established inside each Sprite. No authenticated model task or paid inference is included in the smoke test.
+Fleet orchestration and automatic worktree-removal deletion are not included. Claude and Codex credential handoff was added after these live runs and is covered by fixture-based tests; the live harness disables it. No authenticated model task or paid inference is included in the smoke test.
 
 ## Observed integration details
 
@@ -34,7 +34,7 @@ The final clean live run passed all 11 assertions, including all three agent CLI
 
 ## Real-Sprite CI workflow
 
-The manual `.github/workflows/e2e.yml` workflow uses repository secret `SPRITE_TOKEN` and repository variable `SPRITES_TEST_ORG`. It is restricted to `main` and uses checksum-pinned Herdr 0.9.0 and Sprite CLI 2026-09-02 binaries. Actionlint 1.7.12 validates both workflows.
+The `.github/workflows/e2e.yml` workflow runs on pushes to `main` (including merged pull requests) and manual dispatch. It uses repository secret `SPRITE_TOKEN` and repository variable `SPRITES_TEST_ORG`. It is restricted to `main` and uses checksum-pinned Herdr 0.9.0 and Sprite CLI 2026-09-02 binaries. Actionlint 1.7.12 validates both workflows.
 
 The GitHub-compatible subprocess path was exercised locally with those exact binaries: all 11 live assertions passed, all four dedicated test Sprites were verified absent, and the standalone fallback cleanup also passed idempotently. See [the local CI-mode receipt](../verification/ci-e2e-local.json). The expanded offline suite passes 27 tests, including cleanup ownership, incomplete creation, failed deletion, and token redaction. This local run uses the existing CLI authentication; the configured GitHub secret will be exercised by the dispatched Actions run.
 
