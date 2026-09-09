@@ -170,13 +170,13 @@ Configure these repository Actions settings:
 
 The E2E test creates `ci-herdr-*` Sprites, so a token restricted to `ci-*` names is supported.
 
-Run **Actions → Real Sprite E2E → Run workflow**, selecting **main**, or:
+The workflow runs automatically on pushes to `main`, including merged pull requests. To run it manually, use **Actions → Real Sprite E2E → Run workflow**, selecting **main**, or:
 
 ```sh
 gh workflow run e2e.yml --repo superfly/herdr-sprites-plugin --ref main
 ```
 
-This manual workflow is restricted to `main`. It never runs with secrets on pull requests, and runs are serialized to reduce quota pressure. It downloads checksum-verified Herdr 0.9.0 and Sprite CLI 2026-09-02, runs the offline tests, then performs the same live lifecycle and Claude/Codex/OpenCode startup checks. No model-provider credentials or paid inference are required; real Sprite usage may incur charges.
+This workflow is restricted to `main`. It never runs with secrets on pull requests, and runs are serialized to reduce quota pressure. It downloads checksum-verified Herdr 0.9.0 and Sprite CLI 2026-09-02, runs the offline tests, then performs the same live lifecycle and Claude/Codex/OpenCode startup checks. No model-provider credentials or paid inference are required; real Sprite usage may incur charges.
 
 The normal test cleanup and a separate `always()` cleanup step both reconcile this run's recorded creation intents, including a Sprite whose create response was interrupted. Cleanup fails visibly if it cannot prove those Sprites are gone. A hard runner loss may prevent cleanup; the recorded `ci-herdr-*` names identify test resources for manual removal in that case.
 

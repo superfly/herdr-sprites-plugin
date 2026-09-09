@@ -34,7 +34,7 @@ The final clean live run passed all 11 assertions, including all three agent CLI
 
 ## Real-Sprite CI workflow
 
-The manual `.github/workflows/e2e.yml` workflow uses repository secret `SPRITE_TOKEN` and repository variable `SPRITES_TEST_ORG`. It is restricted to `main` and uses checksum-pinned Herdr 0.9.0 and Sprite CLI 2026-09-02 binaries. Actionlint 1.7.12 validates both workflows.
+The `.github/workflows/e2e.yml` workflow runs on pushes to `main` (including merged pull requests) and manual dispatch. It uses repository secret `SPRITE_TOKEN` and repository variable `SPRITES_TEST_ORG`. It is restricted to `main` and uses checksum-pinned Herdr 0.9.0 and Sprite CLI 2026-09-02 binaries. Actionlint 1.7.12 validates both workflows.
 
 The GitHub-compatible subprocess path was exercised locally with those exact binaries: all 11 live assertions passed, all four dedicated test Sprites were verified absent, and the standalone fallback cleanup also passed idempotently. See [the local CI-mode receipt](../verification/ci-e2e-local.json). The expanded offline suite passes 27 tests, including cleanup ownership, incomplete creation, failed deletion, and token redaction. This local run uses the existing CLI authentication; the configured GitHub secret will be exercised by the dispatched Actions run.
 
