@@ -8,7 +8,9 @@ import { createHash } from 'node:crypto';
 import { localCredentials, transferCredentials, INSTALL_AUTH } from '../src/auth.mjs';
 const secret = 'fixture-login-value';
 function fixture(t) {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'herdr-auth-'));
+  // macOS temp paths can traverse /var -> /private/var. Model the Sprite's
+  // real home directory without weakening the installer's symlink checks.
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'herdr-auth-')));
   t.after(() => fs.rmSync(home, { recursive: true, force: true }));
   const write = (file, value) => { fs.mkdirSync(path.dirname(path.join(home, file)), { recursive: true }); fs.writeFileSync(path.join(home, file), typeof value === 'string' ? value : JSON.stringify(value)); };
   return { home, env: {}, platform: 'linux', write };
