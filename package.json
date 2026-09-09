@@ -1,6 +1,16 @@
 {
   "name": "herdr-sprites-plugin",
   "version": "0.1.0",
+  "description": "Run coding agents in persistent Sprites with safe worktree transfer and checkpoint rollback.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/superfly/herdr-sprites-plugin.git"
+  },
+  "homepage": "https://github.com/superfly/herdr-sprites-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/superfly/herdr-sprites-plugin/issues"
+  },
   "private": true,
   "type": "module",
   "engines": {

@@ -2,15 +2,17 @@
 
 Run Claude Code, Codex, OpenCode, or a custom coding-agent CLI in a persistent [Sprite](https://sprites.dev), controlled from a local [Herdr](https://herdr.dev) pane. Each agent pane gets its own Sprite. Worktree files include uncommitted edits; Git metadata stays local; the selected agent’s login is handed off separately from project files.
 
-## Local setup
+## Install
 
 Requirements: Linux or macOS, Node.js 22+, Git, the authenticated `sprite` CLI, and Herdr 0.9.0+. Tested with Herdr 0.9.0. The Sprite CLI must support `exec --tty`, `sessions`, `checkpoint create`, `restore`, and `api`.
 
 ```sh
 sprite login
-herdr plugin link /absolute/path/to/herdr-sprites-plugin
+herdr plugin install superfly/herdr-sprites-plugin
 herdr plugin config-dir sprites
 ```
+
+Installation from GitHub requires the repository to be public. No npm install or build step is needed. For a local checkout, follow [Local development](#local-development).
 
 Create `config.json` in the printed config directory:
 
@@ -71,7 +73,7 @@ Format references: [Codex authentication](https://developers.openai.com/codex/au
 
 ## Actions
 
-The plugin ID is `sprites`; action IDs below correspond to the issue's `sprites.<action>` surface. Invoke with `herdr plugin action invoke <action> --plugin sprites`.
+The plugin ID is `sprites`. Invoke actions with `herdr plugin action invoke <action> --plugin sprites`.
 
 | Action | Behavior |
 | --- | --- |
@@ -92,7 +94,9 @@ Example keybinding in Herdr's `config.toml`:
 ```toml
 [[keys.command]]
 key = "prefix+shift+s"
-command = "herdr plugin action invoke start-agent --plugin sprites"
+type = "plugin_action"
+command = "sprites.start-agent"
+description = "start agent in a Sprite"
 ```
 
 See the [Vercel and E2B action comparison](docs/action-comparison.md) for their exposed actions and differences in pane/workspace targeting.
@@ -105,7 +109,37 @@ It excludes Git-ignored files (including tracked files now ignored), `.git`, `.s
 
 Pull compares the current remote snapshot against the last successful upload/pull snapshot. Every affected local file must still match that baseline or already match the incoming result. Overlapping local edits, untracked collisions, unsafe paths, and symlink ancestors cause rejection before any local change. Unrelated local changes are preserved. A binary Git patch performs the final checked apply; the local index and existing commits remain unchanged. Repeated pulls and retrying after a receipt-write interruption are safe. There is no automatic upload on reconnect and no automatic overwrite of remote agent work.
 
-The baseline and mapping live under `HERDR_PLUGIN_STATE_DIR`, outside the source checkout, in private per-pane files. Configuration lives under `HERDR_PLUGIN_CONFIG_DIR`. Worktree removal does not destroy Sprites automatically. Fleet orchestration and worktree-removal cleanup are optional follow-ups from issue #106, not enabled in this version.
+The baseline and mapping live under `HERDR_PLUGIN_STATE_DIR`, outside the source checkout, in private per-pane files. Configuration lives under `HERDR_PLUGIN_CONFIG_DIR`. Worktree removal does not destroy Sprites automatically. Fleet orchestration and automatic worktree-removal cleanup are not included.
+
+## Update or uninstall
+
+Reinstall to update a GitHub-managed installation:
+
+```sh
+herdr plugin install superfly/herdr-sprites-plugin
+```
+
+To remove the plugin:
+
+```sh
+herdr plugin uninstall sprites
+```
+
+Uninstalling does not delete remote Sprites. Use Destroy for each Sprite you no longer need before uninstalling. Herdr retains plugin configuration and state.
+
+## Local development
+
+Clone the repository, run its checks, and link your checkout:
+
+```sh
+git clone https://github.com/superfly/herdr-sprites-plugin.git
+cd herdr-sprites-plugin
+npm run check
+herdr plugin link "$PWD"
+herdr plugin config-dir sprites
+```
+
+Create `config.json` as described under [Install](#install). To switch from a local link to a GitHub-managed installation, run `herdr plugin unlink sprites` before installing from GitHub.
 
 ## Testing
 
@@ -166,10 +200,10 @@ A lost/missing Sprite produces an error; reconnect never silently substitutes a 
 
 ## Distribution
 
-Target repository: [superfly/herdr-sprites-plugin](https://github.com/superfly/herdr-sprites-plugin). The root `herdr-plugin.toml` and `herdr-plugin` GitHub topic make the public repository discoverable by the Herdr marketplace. Once published:
-
-```sh
-herdr plugin install superfly/herdr-sprites-plugin
-```
+The [Herdr marketplace](https://herdr.dev/plugins/) discovers public GitHub repositories with the `herdr-plugin` topic and a valid manifest on their default branch. Maintainers should follow the [marketplace release checklist](docs/marketplace.md) for repository settings, validation, and listing details.
 
 Reference contracts: [Herdr plugins](https://herdr.dev/docs/plugins/), [Vercel plugin](https://github.com/vercel-labs/herdr-vercel-sandbox-plugin), [E2B plugin](https://github.com/e2b-dev/herdr-e2b-sandbox), and installed Sprite CLI help/source.
+
+## License
+
+[MIT](LICENSE), copyright Fly.io.
